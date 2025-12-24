@@ -1,0 +1,14 @@
+# Abaikan folder virtual environment
+venv/
+.env
+
+# Abaikan file cache Python (sampah sistem)
+__pycache__/
+*.pyc
+
+# Abaikan database lokal (biar tidak tertimpa saat pull)
+*.sqlite3
+*.db
+
+# Abaikan folder sistem operasi
+.DS_Store

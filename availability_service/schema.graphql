@@ -1,0 +1,15 @@
+type Vehicle {
+    id: ID!
+    plateNumber: String!
+    model: String!
+    status: String!
+}
+
+type Query {
+    getAllVehicles: [Vehicle]
+    getVehicleById(id: ID!): Vehicle
+}
+
+type Mutation {
+    addVehicle(plateNumber: String!, model: String!): Vehicle
+}

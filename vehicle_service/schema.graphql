@@ -1,0 +1,26 @@
+type Vehicle {
+    id: ID
+    plateNumber: String
+    model: String
+    status: String
+    dailyPrice: Float
+}
+
+type Token {
+    access_token: String
+    token_type: String
+}
+
+type Query {
+    # Public: Bisa diakses siapa saja (termasuk Availability Service)
+    getAllVehicles: [Vehicle]
+    getVehicleById(id: ID!): Vehicle
+}
+
+type Mutation {
+    # Public: Untuk mendapatkan token
+    login(username: String!, password: String!): Token
+
+    # Protected: Wajib pakai Header "Authorization: Bearer <token>"
+    addVehicle(plateNumber: String!, model: String!, price: Float!): Vehicle
+}
