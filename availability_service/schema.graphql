@@ -1,15 +1,17 @@
-type Vehicle {
-    id: ID!
-    plateNumber: String!
-    model: String!
-    status: String!
+type Schedule {
+    id: ID
+    vehicleId: Int
+    date: String
+    userId: String
+    isLocked: Boolean
 }
 
 type Query {
-    getAllVehicles: [Vehicle]
-    getVehicleById(id: ID!): Vehicle
+    # Cek apakah tanggal tertentu kosong
+    checkAvailability(vehicleId: Int!, date: String!): Boolean
 }
 
 type Mutation {
-    addVehicle(plateNumber: String!, model: String!): Vehicle
+    # Booking jadwal (Melakukan integrasi ke Vehicle Service & User Service)
+    lockSchedule(vehicleId: Int!, date: String!, userId: String!): Schedule
 }
