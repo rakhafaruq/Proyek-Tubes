@@ -8,7 +8,8 @@ type Schedule {
 
 type Query {
     # Cek apakah tanggal tertentu kosong
-    checkAvailability(vehicleId: Int!, date: String!): Boolean
+    checkAvailability(vehicleId: Int!, date: String!): String
+    getAllSchedules: [Schedule]
 }
 
 type Mutation {

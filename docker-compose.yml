@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  vehicle-service:
+    build: ./vehicle_service
+    container_name: fleet_vehicle_service
+    ports:
+      - "4001:8000"
+    depends_on:
+      - vehicle-db
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgresql://user_vehicle:pass123@vehicle-db/db_fleet_vehicle
+      SECRET_KEY: "rahasia_super_aman"
+    networks:
+      - fleet-net
+
+  vehicle-db:
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_USER: user_vehicle
+      POSTGRES_PASSWORD: pass123
+      POSTGRES_DB: db_fleet_vehicle
+    volumes:
+      - vehicle_data:/var/lib/postgresql/data
+    networks:
+      - fleet-net
+
+  availability-service:
+    build: ./availability_service
+    container_name: fleet_avail_service
+    ports:
+      - "4002:8000"
+    depends_on:
+      - availability-db
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgresql://user_avail:pass123@availability-db/db_fleet_availability
+      INTERNAL_VEHICLE_URL: "http://vehicle-service:8000/graphql/"
+      EXTERNAL_USER_URL: "http://host.docker.internal:3000/graphql" 
+    networks:
+      - fleet-net
+
+  availability-db:
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_USER: user_avail
+      POSTGRES_PASSWORD: pass123
+      POSTGRES_DB: db_fleet_availability
+    volumes:
+      - avail_data:/var/lib/postgresql/data
+    networks:
+      - fleet-net
+
+networks:
+  fleet-net:
+    driver: bridge
+
+volumes:
+  vehicle_data:
+  avail_data:

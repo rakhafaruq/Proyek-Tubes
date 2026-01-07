@@ -1,7 +1,7 @@
 import os
 import httpx # Library untuk menembak API lain
 from fastapi import FastAPI
-from ariadne import make_executable_schema, load_schema_from_path, QueryType, MutationType
+from ariadne import make_executable_schema, load_schema_from_path, QueryType, MutationType, snake_case_fallback_resolvers
 from ariadne.asgi import GraphQL
 from database import engine, Base, SessionLocal
 from models import Schedule
@@ -11,7 +11,7 @@ Base.metadata.create_all(bind=engine)
 
 # --- KONFIGURASI URL INTEGRASI ---
 # Jika di Docker, pakai nama service. Jika lokal, pakai localhost:8000
-VEHICLE_SERVICE_URL = os.getenv("VEHICLE_SERVICE_URL", "http://127.0.0.1:8000/graphql")
+VEHICLE_SERVICE_URL = os.getenv("VEHICLE_SERVICE_URL", "http://vehicle-service:8000/graphql/")
 # URL Kelompok B (Kita pakai dummy dulu kalau mereka belum siap)
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://kelompok-b-api/graphql")
 
@@ -21,13 +21,25 @@ mutation = MutationType()
 # --- RESOLVER ---
 
 @query.field("checkAvailability")
-def resolve_check_availability(*_, vehicleId, date):
+def resolve_check_availability(*_, vehicleId, date, plateNumber):
     session = SessionLocal()
     try:
         # Cek di DB lokal kita, ada gak jadwal di tanggal itu?
-        existing = session.query(Schedule).filter_by(vehicle_id=vehicleId, date=date).first()
+        existing = session.query(Schedule).filter_by(vehicle_id=vehicleId, date=date, plate_number=plateNumber).first()
         # Jika existing ada, berarti TIDAK available (False)
-        return existing is None 
+        if existing:
+            return f"Maaf, untuk Mobil dengan plat {plateNumber} sudah dibooking pada tanggal {date}"
+        else:
+            return f"Mobil dengan ID {plateNumber} tersedia untuk tanggal {date}. Silahkan anda bisa booking mobilnya"
+    finally:
+        session.close()
+
+@query.field("getAllSchedules")
+def resolve_get_all_schedules(*_):
+    session = SessionLocal()
+    try:
+        # Mengambil semua data dari tabel schedules
+        return session.query(Schedule).all()
     finally:
         session.close()
 
@@ -51,6 +63,12 @@ async def resolve_lock_schedule(*_, vehicleId, date, userId):
         
         try:
             response = await client.post(VEHICLE_SERVICE_URL, json=query_check_car)
+
+            if response.status_code != 200:
+                print(f"DEBUG ERROR: Status {response.status_code}")
+                print(f"DEBUG TEXT: {response.text}")
+                raise Exception(f"Vehicle Service Error: {response.status_code}")
+            
             result = response.json()
             
             # Cek Error dari API sebelah
@@ -91,7 +109,7 @@ async def resolve_lock_schedule(*_, vehicleId, date, userId):
 
 # Setup App
 type_defs = load_schema_from_path("schema.graphql")
-schema = make_executable_schema(type_defs, query, mutation)
+schema = make_executable_schema(type_defs, query, mutation, snake_case_fallback_resolvers)
 app = FastAPI(title="Availability Service API")
 
 app.mount("/graphql", GraphQL(schema, debug=True))

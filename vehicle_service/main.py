@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from ariadne import make_executable_schema, load_schema_from_path, QueryType, MutationType
+from ariadne import make_executable_schema, load_schema_from_path, QueryType, MutationType, snake_case_fallback_resolvers
 from ariadne.asgi import GraphQL
 from database import engine, Base, SessionLocal
 from models import Vehicle, Admin
@@ -90,7 +90,7 @@ def resolve_add_vehicle(_, info, plateNumber, model, price):
         session.close()
 
 # 3. Setup Aplikasi FastAPI
-schema = make_executable_schema(type_defs, query, mutation)
+schema = make_executable_schema(type_defs, query, mutation, snake_case_fallback_resolvers)
 app = FastAPI(title="Vehicle Service API")
 
 # Setup CORS agar bisa diakses dari browser/client lain
