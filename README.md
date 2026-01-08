@@ -30,185 +30,199 @@ graph TD
     
     AS -->|External Request: Validasi User| ExtUser[External User Service]
 ```
-🚀 Key Features
-API Gateway: Routing terpusat. Client hanya perlu satu URL untuk mengakses semua layanan.
+<br />
 
-JWT Authentication (SSO): Login satu kali di Vehicle Service, token valid digunakan di Availability Service (Shared Secret Key).
+## 🚀 Key Features
 
-Race Condition Handling: Mencegah double booking (dua user membooking mobil dan tanggal yang sama) menggunakan Database Constraint.
+1.  **API Gateway**
+    Routing terpusat. Client hanya perlu satu URL untuk mengakses semua layanan.
 
-External Integration: Integrasi dengan API kelompok lain untuk memvalidasi reputasi User sebelum booking.
+2.  **JWT Authentication (SSO)**
+    Login satu kali di *Vehicle Service*, token valid digunakan di *Availability Service* (Shared Secret Key).
 
-Microservices Isolation: Pemisahan database dan logika bisnis antara data fisik kendaraan dan jadwal booking.
+3.  **Race Condition Handling**
+    Mencegah *double booking* (dua user membooking mobil dan tanggal yang sama) menggunakan Database Constraint.
 
-🛠️ Tech Stack
-Language: Python 3.9
+4.  **External Integration**
+    Integrasi dengan API kelompok lain untuk memvalidasi reputasi User sebelum booking.
 
-API Interface: GraphQL (Ariadne)
+5.  **Microservices Isolation**
+    Pemisahan database dan logika bisnis antara data fisik kendaraan dan jadwal booking.
 
-Web Framework: FastAPI (Gateway & Service Wrapper)
+<br />
 
-Database: PostgreSQL
+## 🛠️ Tech Stack
 
-Infrastructure: Docker & Docker Compose
+* **Language:** Python 3.9
+* **API Interface:** GraphQL (Ariadne)
+* **Web Framework:** FastAPI (Gateway & Service Wrapper)
+* **Database:** PostgreSQL
+* **Infrastructure:** Docker & Docker Compose
+* **Networking:** Ngrok (Public Tunneling)
 
-Networking: Ngrok (Public Tunneling)
+<br />
 
-⚙️ Installation & Setup
-Prerequisites
+## ⚙️ Installation & Setup
+
+### Prerequisites
 Pastikan Anda sudah menginstall:
+* Docker Desktop & Docker Compose
+* Ngrok
 
-Docker Desktop & Docker Compose
+### 1. Clone Repository
+```bash
+git clone {repo_url}.git
+cd Proyek-Tubes
+```
 
-Ngrok
-
-1. Clone Repository
-Bash
-
-git clone <repository_url>
-cd <repository_folder>
-2. Run Application
+### 2. Run Application
 Jalankan perintah berikut untuk membangun image dan menjalankan container:
-
-Bash
-
+```bash
 docker-compose up --build
-Tunggu hingga semua service (Gateway, Vehicle, Availability, DB) berstatus "Healthy" atau Running.
+```
+*Tunggu hingga semua service (Gateway, Vehicle, Availability, DB) berstatus "Healthy" atau Running.*
 
-3. Expose to Public (Ngrok)
-Buka terminal baru, jalankan Ngrok pada Port 4000 (Port Gateway):
-
-Bash
-
+### 3. Expose to Public (Ngrok)
+Buka terminal baru, jalankan Ngrok pada **Port 4000** (Port Gateway):
+```bash
 ngrok http 4000
-Salin URL HTTPS yang muncul (contoh: https://abcd-1234.ngrok-free.dev). Ini adalah Base URL Anda.
+```
+Salin URL HTTPS yang muncul (contoh: `https://{ngrok_domain}`). Ini adalah **Base URL** Anda.
 
-📖 API Documentation
-Base URL: https://<your-ngrok-domain>.ngrok-free.dev
+<br />
 
-⚠️ PENTING: Endpoint GraphQL mewajibkan tanda garis miring (/) di akhir URL untuk menghindari error redirect 307.
+## 📖 API Documentation
 
-🔐 Authentication Header
-Beberapa fitur membutuhkan token (Private). Token didapatkan dari mutation login. Format Header:
+**Base URL:** `https://{ngrok_domain}`
 
-JSON
+> **⚠️ PENTING:** Endpoint GraphQL mewajibkan tanda **garis miring (/)** di akhir URL.
 
-{
+### 🔐 Authentication Header
+Beberapa fitur membutuhkan token (Private). Token didapatkan dari mutation `login`.
+**Format Header:**
+```json
+{{
   "Authorization": "Bearer <YOUR_ACCESS_TOKEN>"
-}
-🚙 Vehicle Service
-Endpoint: /vehicle/graphql/
+}}
+```
 
-1. Login Admin (Get Token)
+---
+
+### 🚙 Vehicle Service
+**Endpoint:** `/vehicle/graphql/`
+
+#### 1. Login Admin (Get Token)
 Gunakan ini untuk mendapatkan Access Token.
-
-GraphQL
-
-mutation {
-  login(username: "admin", password: "admin123") {
+```graphql
+mutation {{
+  login(username: "admin", password: "admin123") {{
     access_token
     token_type
-  }
-}
-2. Get All Vehicles (Public)
+  }}
+}}
+```
+
+#### 2. Get All Vehicles (Public)
 Melihat daftar mobil beserta status fisiknya.
-
-GraphQL
-
-query {
-  getAllVehicles {
+```graphql
+query {{
+  getAllVehicles {{
     id
     model
     plateNumber
     price
     status
-  }
-}
-3. Add Vehicle (Private - Admin Only)
+  }}
+}}
+```
+
+#### 3. Add Vehicle (Private - Admin Only)
 Menambah armada baru ke database.
-
-GraphQL
-
-mutation {
-  addVehicle(plateNumber: "B 1234 TES", model: "Tesla Model 3", price: 500000) {
+```graphql
+mutation {{
+  addVehicle(plateNumber: "B 1234 TES", model: "Tesla Model 3", price: 500000) {{
     id
     model
     status
-  }
-}
-4. Update Vehicle Status (Private - Admin Only)
-Mengubah status fisik mobil (Contoh: ACTIVE, MAINTENANCE, SOLD).
+  }}
+}}
+```
 
-GraphQL
-
-mutation {
-  updateVehicle(id: 1, status: "MAINTENANCE") {
+#### 4. Update Vehicle Status (Private - Admin Only)
+Mengubah status fisik mobil (Contoh: `ACTIVE`, `MAINTENANCE`, `SOLD`).
+```graphql
+mutation {{
+  updateVehicle(id: 1, status: "MAINTENANCE") {{
     id
     model
     status
-  }
-}
-📅 Availability Service
-Endpoint: /availability/graphql/
+  }}
+}}
+```
 
-1. Check Availability (Public)
+---
+
+### 📅 Availability Service
+**Endpoint:** `/availability/graphql/`
+
+#### 1. Check Availability (Public)
 Validasi apakah mobil tersedia pada tanggal tertentu (belum dibooking dan mobil dalam kondisi prima).
-
-GraphQL
-
-query {
+```graphql
+query {{
   checkAvailability(vehicleId: 1, date: "2025-12-31")
-}
-2. Lock Schedule / Booking (Private)
+}}
+```
+
+#### 2. Lock Schedule / Booking (Private)
 Melakukan booking. Service ini akan otomatis:
+* Mengecek fisik mobil ke *Vehicle Service* (Internal).
+* Mengecek validitas user ke *External User Service* (Kelompok Lain).
+* Menyimpan jadwal jika valid dan mencegah *double booking*.
 
-Mengecek fisik mobil ke Vehicle Service (Internal).
-
-Mengecek validitas user ke External User Service (Kelompok Lain).
-
-Menyimpan jadwal jika valid dan mencegah double booking.
-
-GraphQL
-
-mutation {
-  lockSchedule(vehicleId: 1, date: "2025-12-31", userId: "1") {
+```graphql
+mutation {{
+  lockSchedule(vehicleId: 1, date: "2025-12-31", userId: "1") {{
     id
     vehicleId
     date
     isLocked
     status
-  }
-}
-3. Get All Schedules (Private)
+  }}
+}}
+```
+
+#### 3. Get All Schedules (Private)
 Melihat semua jadwal booking yang tercatat di sistem.
-
-GraphQL
-
-query {
-  getAllSchedules {
+```graphql
+query {{
+  getAllSchedules {{
     id
     vehicleId
     date
     userId
-  }
-}
-🧪 Testing Guidelines (GraphQL Playground)
+  }}
+}}
+```
+
+<br />
+
+## 🧪 Testing Guidelines (GraphQL Playground)
+
 Anda dapat melakukan testing langsung melalui Browser karena Gateway sudah mengaktifkan GraphQL Playground.
 
-Login: Buka base_url/vehicle/graphql/ -> Jalankan mutation login -> Copy Token.
+1.  **Login:** Buka `base_url/vehicle/graphql/` -> Jalankan mutation `login` -> Copy Token.
+2.  **Pindah Service:** Buka `base_url/availability/graphql/`.
+3.  **Set Auth:** Klik **HTTP HEADERS** di bagian bawah kiri, paste token:
+    ```json
+    {{ "Authorization": "Bearer <paste_token_here>" }}
+    ```
+4.  **Eksekusi:** Jalankan mutation `lockSchedule`.
 
-Pindah Service: Buka base_url/availability/graphql/.
+<br />
 
-Set Auth: Klik HTTP HEADERS di bagian bawah kiri, paste token:
+## 📂 Project Structure
 
-JSON
-
-{ "Authorization": "Bearer <paste_token_here>" }
-Eksekusi: Jalankan mutation lockSchedule.
-
-📂 Project Structure
-Bash
-
+```bash
 .
 ├── api_gateway/            # Logic Gateway & Routing (FastAPI Proxy)
 │   ├── main.py
@@ -226,3 +240,4 @@ Bash
 │   └── Dockerfile
 ├── docker-compose.yml      # Konfigurasi Orkestrasi Container
 └── README.md               # Dokumentasi Proyek
+```
