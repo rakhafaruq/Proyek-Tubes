@@ -101,9 +101,9 @@ Salin URL HTTPS yang muncul (contoh: `https://{ngrok_domain}`). Ini adalah **Bas
 Beberapa fitur membutuhkan token (Private). Token didapatkan dari mutation `login`.
 **Format Header:**
 ```json
-{{
+{
   "Authorization": "Bearer <YOUR_ACCESS_TOKEN>"
-}}
+}
 ```
 
 ---
@@ -114,50 +114,50 @@ Beberapa fitur membutuhkan token (Private). Token didapatkan dari mutation `logi
 #### 1. Login Admin (Get Token)
 Gunakan ini untuk mendapatkan Access Token.
 ```graphql
-mutation {{
-  login(username: "admin", password: "admin123") {{
+mutation {
+  login(username: "admin", password: "admin123") {
     access_token
     token_type
-  }}
-}}
+  }
+}
 ```
 
 #### 2. Get All Vehicles (Public)
 Melihat daftar mobil beserta status fisiknya.
 ```graphql
-query {{
-  getAllVehicles {{
+query {
+  getAllVehicles {
     id
     model
     plateNumber
     price
     status
-  }}
-}}
+  }
+}
 ```
 
 #### 3. Add Vehicle (Private - Admin Only)
 Menambah armada baru ke database.
 ```graphql
-mutation {{
-  addVehicle(plateNumber: "B 1234 TES", model: "Tesla Model 3", price: 500000) {{
+mutation {
+  addVehicle(plateNumber: "B 1234 TES", model: "Tesla Model 3", price: 500000) {
     id
     model
     status
-  }}
-}}
+  }
+}
 ```
 
 #### 4. Update Vehicle Status (Private - Admin Only)
 Mengubah status fisik mobil (Contoh: `ACTIVE`, `MAINTENANCE`, `SOLD`).
 ```graphql
-mutation {{
-  updateVehicle(id: 1, status: "MAINTENANCE") {{
+mutation {
+  updateVehicle(id: 1, status: "MAINTENANCE") {
     id
     model
     status
-  }}
-}}
+  }
+}
 ```
 
 ---
@@ -168,9 +168,9 @@ mutation {{
 #### 1. Check Availability (Public)
 Validasi apakah mobil tersedia pada tanggal tertentu (belum dibooking dan mobil dalam kondisi prima).
 ```graphql
-query {{
+query {
   checkAvailability(vehicleId: 1, date: "2025-12-31")
-}}
+}
 ```
 
 #### 2. Lock Schedule / Booking (Private)
@@ -180,28 +180,28 @@ Melakukan booking. Service ini akan otomatis:
 * Menyimpan jadwal jika valid dan mencegah *double booking*.
 
 ```graphql
-mutation {{
-  lockSchedule(vehicleId: 1, date: "2025-12-31", userId: "1") {{
+mutation {
+  lockSchedule(vehicleId: 1, date: "2025-12-31", userId: "1") {
     id
     vehicleId
     date
     isLocked
     status
-  }}
-}}
+  }
+}
 ```
 
 #### 3. Get All Schedules (Private)
 Melihat semua jadwal booking yang tercatat di sistem.
 ```graphql
-query {{
-  getAllSchedules {{
+query {
+  getAllSchedules {
     id
     vehicleId
     date
     userId
-  }}
-}}
+  }
+}
 ```
 
 <br />
@@ -214,7 +214,7 @@ Anda dapat melakukan testing langsung melalui Browser karena Gateway sudah menga
 2.  **Pindah Service:** Buka `base_url/availability/graphql/`.
 3.  **Set Auth:** Klik **HTTP HEADERS** di bagian bawah kiri, paste token:
     ```json
-    {{ "Authorization": "Bearer <paste_token_here>" }}
+    { "Authorization": "Bearer <paste_token_here>" }
     ```
 4.  **Eksekusi:** Jalankan mutation `lockSchedule`.
 
