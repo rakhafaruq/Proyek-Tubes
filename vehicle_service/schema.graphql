@@ -23,4 +23,5 @@ type Mutation {
 
     # Protected: Wajib pakai Header "Authorization: Bearer <token>"
     addVehicle(plateNumber: String!, model: String!, price: Float!): Vehicle
+    updateVehicle(id: ID!, status: String!): Vehicle
 }

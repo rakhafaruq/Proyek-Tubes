@@ -89,6 +89,43 @@ def resolve_add_vehicle(_, info, plateNumber, model, price):
     finally:
         session.close()
 
+@mutation.field("updateVehicle")
+def resolve_update_vehicle(_, info, id, status):
+    # 1. Cek Login (Wajib Admin)
+    request = info.context["request"]
+    auth_header = request.headers.get("Authorization")
+    
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise Exception("Akses Ditolak: Token tidak ditemukan")
+    
+    token = auth_header.split(" ")[1]
+    payload = auth.decode_access_token(token)
+    
+    if payload is None:
+        raise Exception("Akses Ditolak: Token tidak valid atau kadaluarsa")
+    # --------------------------
+
+    db = SessionLocal()
+    try:
+        # 3. Cari Mobil di Database
+        vehicle = db.query(Vehicle).filter(Vehicle.id == id).first()
+        
+        if not vehicle:
+            raise Exception(f"Mobil dengan ID {id} tidak ditemukan.")
+
+        # 4. Update Status
+        vehicle.status = status
+        db.commit()
+        db.refresh(vehicle)
+        
+        return vehicle
+    
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
 # 3. Setup Aplikasi FastAPI
 schema = make_executable_schema(type_defs, query, mutation, snake_case_fallback_resolvers)
 app = FastAPI(title="Vehicle Service API")

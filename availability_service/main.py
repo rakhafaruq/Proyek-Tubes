@@ -13,7 +13,7 @@ Base.metadata.create_all(bind=engine)
 # Jika di Docker, pakai nama service. Jika lokal, pakai localhost:8000
 VEHICLE_SERVICE_URL = os.getenv("VEHICLE_SERVICE_URL", "http://vehicle-service:8000/graphql/")
 # URL Kelompok B (Kita pakai dummy dulu kalau mereka belum siap)
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://kelompok-b-api/graphql")
+USER_SERVICE_URL = os.getenv("EXTERNAL_USER_URL", "https://nonchallenging-amira-cercarial.ngrok-free.dev/graphql/")
 
 query = QueryType()
 mutation = MutationType()
@@ -21,16 +21,16 @@ mutation = MutationType()
 # --- RESOLVER ---
 
 @query.field("checkAvailability")
-def resolve_check_availability(*_, vehicleId, date, plateNumber):
+def resolve_check_availability(*_, vehicleId, date):
     session = SessionLocal()
     try:
         # Cek di DB lokal kita, ada gak jadwal di tanggal itu?
-        existing = session.query(Schedule).filter_by(vehicle_id=vehicleId, date=date, plate_number=plateNumber).first()
+        existing = session.query(Schedule).filter_by(vehicle_id=vehicleId, date=date).first()
         # Jika existing ada, berarti TIDAK available (False)
         if existing:
-            return f"Maaf, untuk Mobil dengan plat {plateNumber} sudah dibooking pada tanggal {date}"
+            return "BOOKED"
         else:
-            return f"Mobil dengan ID {plateNumber} tersedia untuk tanggal {date}. Silahkan anda bisa booking mobilnya"
+            return "AVAILABLE"
     finally:
         session.close()
 
@@ -45,56 +45,86 @@ def resolve_get_all_schedules(*_):
 
 @mutation.field("lockSchedule")
 async def resolve_lock_schedule(*_, vehicleId, date, userId):
-    # --- LANGKAH 1: INTEGRASI KE VEHICLE SERVICE ---
-    # Kita harus tanya: "Eh Service 1, Mobil ID sekian itu ada gak?"
+    
+    # === LANGKAH 1: VALIDASI MOBIL (KE VEHICLE SERVICE) ===
     async with httpx.AsyncClient() as client:
-        # Query GraphQL yang mau kita kirim ke Service 1
         query_check_car = {
-            "query": f"""
-            query {{
-                getVehicleById(id: {vehicleId}) {{
+            "query": """
+            query($vid: ID!) {
+                getVehicleById(id: $vid) {
                     id
                     model
                     status
-                }}
-            }}
-            """
+                }
+            }
+            """,
+            "variables": {"vid": str(vehicleId)}
         }
         
         try:
-            response = await client.post(VEHICLE_SERVICE_URL, json=query_check_car)
-
+            response = await client.post(VEHICLE_SERVICE_URL, json=query_check_car, timeout=10.0)
             if response.status_code != 200:
-                print(f"DEBUG ERROR: Status {response.status_code}")
-                print(f"DEBUG TEXT: {response.text}")
                 raise Exception(f"Vehicle Service Error: {response.status_code}")
             
             result = response.json()
+            data = result.get("data", {})
             
-            # Cek Error dari API sebelah
-            if "data" not in result or result["data"]["getVehicleById"] is None:
-                raise Exception(f"Mobil ID {vehicleId} tidak ditemukan di Vehicle Service!")
+            if not data or data.get("getVehicleById") is None:
+                raise Exception(f"Mobil ID {vehicleId} tidak ditemukan!")
             
-            car_data = result["data"]["getVehicleById"]
-            if car_data["status"] != "ACTIVE":
-                raise Exception(f"Mobil {car_data['model']} sedang dalam perbaikan (MAINTENANCE).")
+            if data["getVehicleById"]["status"] != "ACTIVE":
+                raise Exception(f"Mobil sedang MAINTENANCE.")
                 
         except httpx.RequestError:
-            raise Exception("Gagal menghubungi Vehicle Service. Pastikan service tersebut nyala.")
+            raise Exception("Gagal menghubungi Vehicle Service.")
 
-    # --- LANGKAH 2: INTEGRASI KE USER SERVICE (KELOMPOK B) ---
-    # (Sementara kita skip/pass dulu biar testing lancar, 
-    # nanti tinggal uncomment kalau mereka sudah siap)
-    # async with httpx.AsyncClient() as client:
-    #     ... logic cek reputasi user ...
-    
-    # --- LANGKAH 3: SIMPAN JADWAL DI DATABASE SENDIRI ---
+
+    # === LANGKAH 2: VALIDASI USER & REPUTASI (SESUAI SCHEMA BARU) ===
+    async with httpx.AsyncClient() as client:
+        # UPDATED: Menggunakan query 'checkUserReputation' milik Kelompok Sebelah
+        query_check_reputation = {
+            "query": """
+            query($uid: ID!) {
+                checkUserReputation(userId: $uid) {
+                    score
+                    isBlacklisted
+                }
+            }
+            """,
+            "variables": {"uid": str(userId)}
+        }
+
+        try:
+            # 1. Tembak API User
+            response = await client.post(USER_SERVICE_URL, json=query_check_reputation, timeout=15.0)
+
+            if response.status_code != 200:
+                raise Exception(f"Gagal Validasi User: Server Kelompok B Error ({response.status_code})")
+
+            # 2. Cek Data
+            result = response.json()
+            data = result.get("data", {})
+            
+            # Jika 'checkUserReputation' null -> Artinya User ID mungkin tidak ada di DB mereka
+            if not data or data.get("checkUserReputation") is None:
+                raise Exception(f"Booking Ditolak: User ID {userId} TIDAK VALID atau tidak ditemukan di User Service!")
+            
+            reputation = data["checkUserReputation"]
+
+            # 3. Cek Blacklist (Boolean)
+            if reputation.get("isBlacklisted") is True:
+                raise Exception(f"Booking Ditolak: User ini masuk daftar BLACKLIST! (Skor: {reputation.get('score')})")
+
+        except httpx.RequestError:
+            raise Exception("Booking Gagal: Tidak dapat menghubungi User Service (Server Offline/Link Mati).")
+
+
+    # === LANGKAH 3: SIMPAN JADWAL ===
     session = SessionLocal()
     try:
-        # Cek bentrok tanggal
         existing = session.query(Schedule).filter_by(vehicle_id=vehicleId, date=date).first()
         if existing:
-            raise Exception("Jadwal pada tanggal tersebut sudah terisi!")
+            raise Exception("Gagal: Mobil sudah dipesan orang lain pada tanggal ini!")
 
         new_schedule = Schedule(vehicle_id=vehicleId, date=date, user_id=userId)
         session.add(new_schedule)
